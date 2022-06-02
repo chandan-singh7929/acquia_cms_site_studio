@@ -12,6 +12,7 @@ use Drupal\cohesion\Controller\AdministrationController;
 use Drupal\cohesion_website_settings\Controller\WebsiteSettingsController;
 use Drupal\Core\Ajax\CloseDialogCommand;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Installer\InstallerKernel;
 use Drupal\media_library\MediaLibraryState;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -212,4 +213,16 @@ function acquia_cms_site_studio_rebuild_styles() {
   // Get the batch array filled with operations that should be performed during
   // rebuild.
   batch_set(install_acms_site_studio_rebuild());
+}
+
+/**
+ * Implements hook_modules_installed().
+ *
+ * Import and rebuild cohesion element on module install.
+ */
+function acquia_cms_site_studio_modules_installed($modules) {
+  if (!InstallerKernel::installationAttempted() && in_array('acquia_cms_site_studio', $modules)) {
+    \Drupal::service('acquia_cms_common.utility')->siteStudioPackageImport();
+    \Drupal::service('acquia_cms_common.utility')->rebuildSiteStudio();
+  }
 }

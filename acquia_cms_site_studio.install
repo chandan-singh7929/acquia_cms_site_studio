@@ -15,38 +15,24 @@ use Drupal\node\Entity\NodeType;
  * @throws Exception
  */
 function acquia_cms_site_studio_install() {
+
+  $module_handler = \Drupal::moduleHandler();
   $site_studio_api_key = getenv('SITESTUDIO_API_KEY');
   $site_studio_org_key = getenv('SITESTUDIO_ORG_KEY');
 
   // Set default theme as cohesion.
   set_theme_site_studio_as_default();
 
-  // Set credentials if module being installed independently.
-  if (!InstallerKernel::installationAttempted() && $site_studio_api_key && $site_studio_org_key) {
-    set_site_studio_credentials($site_studio_api_key, $site_studio_org_key);
-  }
-
-  // Update search & search_fallback views display_options's style
-  // type as cohesion_layout and option's views_template & master_template
-  // if acquia_cms_site_studio module is present else use default one.
-  $module_handler = \Drupal::moduleHandler();
-  if ($module_handler->moduleExists('acquia_cms_search')) {
-    _acquia_cms_common_update_view_display_options_style('search');
-    _acquia_cms_common_update_view_display_options_style('search_fallback');
-
-    // Disable acquia_search view provided by Acquia Search Solrmodule,
-    // so that search view provided by acquia_cms_search module can be used
-    // which will allow content's related test to pass in isolation.
-    $view_storage = \Drupal::entityTypeManager()->getStorage('view');
-    if (!empty($view_storage->load('acquia_search'))) {
-      $view_storage->load('acquia_search')
-        ->setStatus(FALSE)
-        ->save();
-    }
-  }
-
-  // If module getting install stand alone.
   if (!InstallerKernel::installationAttempted()) {
+    // Prevent installation of site studio package on module install.
+    // @see acquia_cms_common_module_implements_alter().
+    putenv('UNSET_COHESION_SYNC=1');
+
+    // Set credentials if module being installed independently.
+    if ($site_studio_api_key && $site_studio_org_key) {
+      set_site_studio_credentials($site_studio_api_key, $site_studio_org_key);
+    }
+
     // Trigger save on page body field to update it.
     if ($module_handler->moduleExists('acquia_cms_page') ) {
       $config = \Drupal::service('config.factory')->getEditable('field.field.node.page.body');
@@ -75,6 +61,24 @@ function acquia_cms_site_studio_install() {
     }
   }
 
+  // Update search & search_fallback views display_options's style
+  // type as cohesion_layout and option's views_template & master_template
+  // if acquia_cms_site_studio module is present else use default one.
+  if ($module_handler->moduleExists('acquia_cms_search')) {
+    _acquia_cms_common_update_view_display_options_style('search');
+    _acquia_cms_common_update_view_display_options_style('search_fallback');
+
+    // Disable acquia_search view provided by Acquia Search Solrmodule,
+    // so that search view provided by acquia_cms_search module can be used
+    // which will allow content's related test to pass in isolation.
+    $view_storage = \Drupal::entityTypeManager()->getStorage('view');
+    if (!empty($view_storage->load('acquia_search'))) {
+      $view_storage->load('acquia_search')
+        ->setStatus(FALSE)
+        ->save();
+    }
+  }
+
   // Set default configurations for node revision delete module.
   $config = \Drupal::service('config.factory')->getEditable('node_revision_delete.settings');
   if (!empty($config)) {
@@ -84,8 +88,8 @@ function acquia_cms_site_studio_install() {
   }
 
   // Re-write the editor and filter format config from
-  // optional directory since we have don some update to it.
-  $module_path = \Drupal::moduleHandler()->getModule('acquia_cms_site_studio')->getPath();
+  // optional directory since we have done some update to it.
+  $module_path = $module_handler->getModule('acquia_cms_site_studio')->getPath();
   $config_optional = $module_path . '/config/optional';
   $source_optional_dir = new FileStorage($config_optional);
 
@@ -185,7 +189,7 @@ function acquia_cms_site_studio_update_8003() {
 /**
  * Implements hook_uninstall().
  *
- * Reset page field body's label and descritption to default.
+ * Reset page field body's label and description to default.
  */
 function acquia_cms_site_studio_uninstall() {
   $config = \Drupal::service('config.factory')->getEditable('field.field.node.page.body');
